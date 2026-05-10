@@ -68,6 +68,14 @@ export const FRED_SERIES = {
   TREASURY_10Y: 'DGS10',
   TREASURY_2Y: 'DGS2',
   TREASURY_3M: 'DGS3MO',
+  TIPS_10Y: 'DFII10',           // 10Y Treasury Inflation-Protected Yield (real yield)
+  BREAKEVEN_10Y: 'T10YIE',      // 10Y breakeven inflation (market-implied CPI)
+  MORTGAGE_30Y: 'MORTGAGE30US', // 30Y fixed mortgage rate (consumer-facing)
+
+  // US Liquidity & Credit
+  M2: 'M2SL',
+  FED_BALANCE_SHEET: 'WALCL',   // Total Fed assets — visualizes QE/QT
+  HY_OAS: 'BAMLH0A0HYM2',       // ICE BofA US HY Option-Adjusted Spread (risk-off proxy)
 
   // US Inflation
   CPI_ALL: 'CPIAUCSL',
@@ -79,18 +87,21 @@ export const FRED_SERIES = {
   UNEMPLOYMENT: 'UNRATE',
   NONFARM_PAYROLLS: 'PAYEMS',
   INITIAL_CLAIMS: 'ICSA',
+  AVG_HOURLY_EARNINGS: 'CES0500000003', // wage growth — sticky inflation driver
+  JOB_OPENINGS: 'JTSJOL',               // JOLTS — labor demand leading indicator
 
   // US Growth
   GDP_GROWTH: 'A191RL1Q225SBEA',
+  GDP_NOMINAL: 'GDP',           // Nominal GDP, used for Buffett Indicator denominator
   RETAIL_SALES: 'RSXFS',
   INDUSTRIAL_PRODUCTION: 'INDPRO',
-
-  // US Money Supply
-  M2: 'M2SL',
 
   // US Housing
   HOUSING_STARTS: 'HOUST',
 
   // US Sentiment
   CONSUMER_SENTIMENT: 'UMCSENT',
+
+  // US Valuation
+  WILSHIRE_FULL_CAP: 'WILL5000PRFC', // total US market cap proxy (Buffett Indicator numerator)
 } as const;
