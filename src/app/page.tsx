@@ -11,6 +11,7 @@ import IndicatorExplainer from '@/components/sections/IndicatorExplainer';
 import MacroChain from '@/components/sections/MacroChain';
 import SectorSensitivity from '@/components/sections/SectorSensitivity';
 import CyclePhase from '@/components/sections/CyclePhase';
+import IndexHoverCard from '@/components/cards/IndexHoverCard';
 
 interface QuoteItem {
   symbol: string;
@@ -335,26 +336,28 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 {['^GSPC', '^NDX', '^IXIC', '^DJI', '^RUT', '^VIX'].map(sym => {
                   const q = getQuote(sym);
+                  const label = SYMBOL_DISPLAY[sym] || sym;
                   return (
-                    <MetricCard
-                      key={sym}
-                      label={SYMBOL_DISPLAY[sym] || sym}
-                      value={q?.price ?? null}
-                      change={q?.changePercent}
-                      changeLabel="%"
-                      signal={sym === '^VIX'
-                        ? ((q?.price ?? 20) > 25 ? 'warning' : (q?.price ?? 20) > 30 ? 'negative' : 'positive')
-                        : ((q?.changePercent ?? 0) > 0 ? 'positive' : (q?.changePercent ?? 0) < 0 ? 'negative' : 'neutral')}
-                      description={
-                        sym === '^GSPC' ? '500大蓝筹' :
-                        sym === '^NDX' ? '纳斯达克100大盘科技' :
-                        sym === '^IXIC' ? '所有纳斯达克股票' :
-                        sym === '^DJI' ? '30只工业蓝筹' :
-                        sym === '^RUT' ? '小盘股代表' :
-                        '波动率 / "恐惧指数"'
-                      }
-                      size="sm"
-                    />
+                    <IndexHoverCard key={sym} symbol={sym} label={label}>
+                      <MetricCard
+                        label={label}
+                        value={q?.price ?? null}
+                        change={q?.changePercent}
+                        changeLabel="%"
+                        signal={sym === '^VIX'
+                          ? ((q?.price ?? 20) > 25 ? 'warning' : (q?.price ?? 20) > 30 ? 'negative' : 'positive')
+                          : ((q?.changePercent ?? 0) > 0 ? 'positive' : (q?.changePercent ?? 0) < 0 ? 'negative' : 'neutral')}
+                        description={
+                          sym === '^GSPC' ? '500大蓝筹 · 悬停看走势' :
+                          sym === '^NDX' ? '纳斯达克100 · 悬停看走势' :
+                          sym === '^IXIC' ? '纳斯达克综合 · 悬停看走势' :
+                          sym === '^DJI' ? '30只工业蓝筹 · 悬停看走势' :
+                          sym === '^RUT' ? '小盘股代表 · 悬停看走势' :
+                          '波动率指数 · 悬停看走势'
+                        }
+                        size="sm"
+                      />
+                    </IndexHoverCard>
                   );
                 })}
               </div>
@@ -380,7 +383,9 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 <MetricCard label="联储基准利率" value={usMacro?.indicators.fedFundsRate?.value ?? null} unit="%" date={usMacro?.indicators.fedFundsRate?.date} signal={(usMacro?.indicators.fedFundsRate?.value ?? 0) > 5 ? 'negative' : (usMacro?.indicators.fedFundsRate?.value ?? 0) > 3 ? 'warning' : 'positive'} description="Fed Funds Rate" size="sm" />
                 <MetricCard label="美债 2Y" value={usMacro?.indicators.treasury2y?.value ?? null} unit="%" date={usMacro?.indicators.treasury2y?.date} description="对联储政策最敏感" size="sm" />
-                <MetricCard label="美债 10Y" value={usMacro?.indicators.treasury10y?.value ?? null} unit="%" date={usMacro?.indicators.treasury10y?.date} description="股票折现率基准" size="sm" />
+                <IndexHoverCard symbol="^TNX" label="美债 10Y 收益率">
+                  <MetricCard label="美债 10Y" value={usMacro?.indicators.treasury10y?.value ?? null} unit="%" date={usMacro?.indicators.treasury10y?.date} description="股票折现率基准 · 悬停看走势" size="sm" />
+                </IndexHoverCard>
                 <MetricCard label="收益率曲线" value={usMacro?.indicators.yieldSpread?.value ?? null} unit="%" signal={(usMacro?.indicators.yieldSpread?.value ?? 0) < 0 ? 'negative' : (usMacro?.indicators.yieldSpread?.value ?? 0) < 0.5 ? 'warning' : 'positive'} description="10Y − 2Y" size="sm" />
                 <MetricCard label="M2 货币供应" value={usMacro?.indicators.m2?.value ?? null} date={usMacro?.indicators.m2?.date} description="十亿美元，流动性指标" size="sm" />
               </div>
