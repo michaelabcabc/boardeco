@@ -26,24 +26,42 @@ export interface HistoricalData {
   volume?: number;
 }
 
-const YAHOO_QUERY = 'https://query1.finance.yahoo.com/v8/finance/chart';
-const YAHOO_QUOTE = 'https://query1.finance.yahoo.com/v7/finance/quote';
+// Try both query1 and query2 endpoints (query2 is sometimes less rate-limited)
+const YAHOO_QUERY_HOSTS = [
+  'https://query1.finance.yahoo.com',
+  'https://query2.finance.yahoo.com',
+];
+const YAHOO_QUOTE_PATH = '/v7/finance/quote';
+const YAHOO_CHART_PATH = '/v8/finance/chart';
+
+// Cycle through hosts on retry
+let hostIndex = 0;
+function getHost() {
+  const host = YAHOO_QUERY_HOSTS[hostIndex % YAHOO_QUERY_HOSTS.length];
+  hostIndex++;
+  return host;
+}
 
 const HEADERS = {
   'User-Agent':
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  Accept: 'application/json',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  Accept: 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  Origin: 'https://finance.yahoo.com',
+  Referer: 'https://finance.yahoo.com/',
 };
 
 export async function getQuotes(symbols: string[]): Promise<QuoteData[]> {
   try {
-    const url = new URL(YAHOO_QUOTE);
+    const host = getHost();
+    const url = new URL(`${host}${YAHOO_QUOTE_PATH}`);
     url.searchParams.set('symbols', symbols.join(','));
     url.searchParams.set('fields', 'regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketPreviousClose,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,regularMarketVolume,marketCap,shortName,longName,currency');
 
     const res = await fetch(url.toString(), {
       headers: HEADERS,
-      next: { revalidate: 300 },
+      cache: 'no-store',
     });
 
     if (!res.ok) throw new Error(`Yahoo Finance error: ${res.status}`);
