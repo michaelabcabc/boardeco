@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { getChinaIndicator, WB_INDICATORS } from '@/lib/worldbank';
 import { getQuotes } from '@/lib/yahoo';
 
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 // Fetch China macro data from multiple sources
 async function fetchChinaPMI() {

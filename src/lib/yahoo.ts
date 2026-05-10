@@ -94,7 +94,8 @@ export async function getHistorical(
   period: '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y' = '1y'
 ): Promise<HistoricalData[]> {
   try {
-    const url = new URL(`${YAHOO_QUERY}/${symbol}`);
+    const host = getHost();
+    const url = new URL(`${host}${YAHOO_CHART_PATH}/${symbol}`);
     url.searchParams.set('range', period);
     url.searchParams.set('interval', period === '1mo' ? '1d' : period === '3mo' ? '1d' : '1wk');
 
