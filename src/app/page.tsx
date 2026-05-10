@@ -383,7 +383,9 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 <MetricCard label="联储基准利率" value={usMacro?.indicators.fedFundsRate?.value ?? null} unit="%" date={usMacro?.indicators.fedFundsRate?.date} signal={(usMacro?.indicators.fedFundsRate?.value ?? 0) > 5 ? 'negative' : (usMacro?.indicators.fedFundsRate?.value ?? 0) > 3 ? 'warning' : 'positive'} description="Fed Funds Rate" size="sm" />
                 <MetricCard label="美债 2Y" value={usMacro?.indicators.treasury2y?.value ?? null} unit="%" date={usMacro?.indicators.treasury2y?.date} description="对联储政策最敏感" size="sm" />
-                <MetricCard label="美债 10Y" value={usMacro?.indicators.treasury10y?.value ?? null} unit="%" date={usMacro?.indicators.treasury10y?.date} description="股票折现率基准" size="sm" />
+                <IndexHoverCard symbol="^TNX" label="美债 10Y 收益率">
+                  <MetricCard label="美债 10Y" value={usMacro?.indicators.treasury10y?.value ?? null} unit="%" date={usMacro?.indicators.treasury10y?.date} description="股票折现率基准 · 悬停看走势" size="sm" />
+                </IndexHoverCard>
                 <MetricCard label="收益率曲线" value={usMacro?.indicators.yieldSpread?.value ?? null} unit="%" signal={(usMacro?.indicators.yieldSpread?.value ?? 0) < 0 ? 'negative' : (usMacro?.indicators.yieldSpread?.value ?? 0) < 0.5 ? 'warning' : 'positive'} description="10Y − 2Y" size="sm" />
                 <MetricCard label="M2 货币供应" value={usMacro?.indicators.m2?.value ?? null} date={usMacro?.indicators.m2?.date} description="十亿美元，流动性指标" size="sm" />
               </div>
