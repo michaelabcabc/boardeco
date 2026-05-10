@@ -17,12 +17,17 @@ export interface StooqQuote {
 // Keys are Yahoo-format symbols; values are the CBOE delayed-quote slug.
 // `divisor` is applied because CBOE's TNX series is 10× the actual 10Y yield.
 const CBOE_OVERRIDES: Record<string, { cboe: string; divisor?: number }> = {
-  '^GSPC': { cboe: '_SPX' },
-  '^DJI':  { cboe: '_DJI' },
-  '^NDX':  { cboe: '_NDX' },
-  '^RUT':  { cboe: '_RUT' },
-  '^VIX':  { cboe: '_VIX' },
-  '^TNX':  { cboe: '_TNX', divisor: 10 },
+  '^GSPC':  { cboe: '_SPX' },
+  '^DJI':   { cboe: '_DJI' },
+  '^NDX':   { cboe: '_NDX' },
+  '^RUT':   { cboe: '_RUT' },
+  '^VIX':   { cboe: '_VIX' },
+  '^VIX9D': { cboe: '_VIX9D' },
+  '^VIX3M': { cboe: '_VIX3M' },
+  '^VIX6M': { cboe: '_VIX6M' },
+  '^VVIX':  { cboe: '_VVIX' },
+  '^SKEW':  { cboe: '_SKEW' },
+  '^TNX':   { cboe: '_TNX', divisor: 10 },
 };
 
 // Stooq symbol mapping (their format differs from Yahoo Finance)
@@ -59,6 +64,20 @@ const STOOQ_SYMBOLS: Record<string, { stooq: string; name: string; currency: str
   SMH:        { stooq: 'SMH.US',   name: '半导体 (SMH)',     currency: 'USD' },
   TLT:        { stooq: 'TLT.US',   name: '20年+长债 (TLT)',  currency: 'USD' },
   HYG:        { stooq: 'HYG.US',   name: '高收益债 (HYG)',   currency: 'USD' },
+  // VIX term structure & volatility cousins (CBOE-served; Stooq column unused, kept for type)
+  '^VIX9D':   { stooq: 'VIX9D.US', name: 'VIX 9天',          currency: 'USD' },
+  '^VIX3M':   { stooq: 'VIX3M.US', name: 'VIX 3个月',        currency: 'USD' },
+  '^VIX6M':   { stooq: 'VIX6M.US', name: 'VIX 6个月',        currency: 'USD' },
+  '^VVIX':    { stooq: 'VVIX.US',  name: 'VVIX',             currency: 'USD' },
+  '^SKEW':    { stooq: 'SKEW.US',  name: 'SKEW 尾部风险',    currency: 'USD' },
+  // Magnificent 7 individual stocks
+  AAPL:       { stooq: 'AAPL.US',  name: 'Apple',            currency: 'USD' },
+  MSFT:       { stooq: 'MSFT.US',  name: 'Microsoft',        currency: 'USD' },
+  NVDA:       { stooq: 'NVDA.US',  name: 'NVIDIA',           currency: 'USD' },
+  GOOGL:      { stooq: 'GOOGL.US', name: 'Alphabet',         currency: 'USD' },
+  AMZN:       { stooq: 'AMZN.US',  name: 'Amazon',           currency: 'USD' },
+  META:       { stooq: 'META.US',  name: 'Meta',             currency: 'USD' },
+  TSLA:       { stooq: 'TSLA.US',  name: 'Tesla',            currency: 'USD' },
 };
 
 async function fetchStooqQuote(stooqSymbol: string): Promise<{ price: number; prevClose: number } | null> {

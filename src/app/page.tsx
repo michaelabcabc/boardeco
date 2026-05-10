@@ -25,6 +25,8 @@ interface QuoteItem {
 
 interface MarketData {
   us: QuoteItem[];
+  usVol: QuoteItem[];
+  mag7: QuoteItem[];
   usSectors: QuoteItem[];
   cn: QuoteItem[];
   global: QuoteItem[];
@@ -41,17 +43,30 @@ interface UsMacroData {
     fedFundsRate?: IndicatorPoint;
     treasury10y?: IndicatorPoint;
     treasury2y?: IndicatorPoint;
+    tips10y?: IndicatorPoint;
+    breakeven10y?: IndicatorPoint;
+    mortgage30y?: IndicatorPoint;
     yieldSpread?: IndicatorPoint;
     cpi?: IndicatorPoint;
     cpiCore?: IndicatorPoint;
     cpiYoY?: IndicatorPoint;
     pce?: IndicatorPoint;
     unemployment?: IndicatorPoint;
+    nfp?: IndicatorPoint;
+    nfpMoM?: IndicatorPoint;
+    ahe?: IndicatorPoint;
+    aheYoY?: IndicatorPoint;
+    jolts?: IndicatorPoint;
     gdpGrowth?: IndicatorPoint;
+    gdpNominal?: IndicatorPoint;
     m2?: IndicatorPoint;
+    fedBs?: IndicatorPoint;
+    hyOas?: IndicatorPoint;
     retailSales?: IndicatorPoint;
     initialClaims?: IndicatorPoint;
     consumerSentiment?: IndicatorPoint;
+    wilshire?: IndicatorPoint;
+    buffett?: IndicatorPoint;
   };
   history: {
     fedFunds: Array<{ date: string; value: string }>;
@@ -59,6 +74,9 @@ interface UsMacroData {
     cpi: Array<{ date: string; value: string }>;
     unemployment: Array<{ date: string; value: string }>;
     gdp: Array<{ date: string; value: string }>;
+    nfp: Array<{ date: string; value: string }>;
+    hyOas: Array<{ date: string; value: string }>;
+    fedBs: Array<{ date: string; value: string }>;
   };
   updatedAt: string;
 }
@@ -105,6 +123,18 @@ const SYMBOL_DISPLAY: Record<string, string> = {
   'DX-Y.NYB': '美元指数',
   '^TNX': '美债10Y收益率',
   '^IRX': '美债13周收益率',
+  '^VIX9D': 'VIX 9天',
+  '^VIX3M': 'VIX 3个月',
+  '^VIX6M': 'VIX 6个月',
+  '^VVIX': 'VVIX',
+  '^SKEW': 'SKEW',
+  AAPL: 'Apple',
+  MSFT: 'Microsoft',
+  NVDA: 'NVIDIA',
+  GOOGL: 'Alphabet',
+  AMZN: 'Amazon',
+  META: 'Meta',
+  TSLA: 'Tesla',
   XLK: '科技板块 (XLK)',
   XLF: '金融板块 (XLF)',
   XLE: '能源板块 (XLE)',
@@ -390,6 +420,19 @@ export default function Dashboard() {
                 <MetricCard label="M2 货币供应" value={usMacro?.indicators.m2?.value ?? null} date={usMacro?.indicators.m2?.date} description="十亿美元，流动性指标" size="sm" />
               </div>
 
+              {/* Liquidity & credit row */}
+              <div className="text-xs text-slate-500 mt-1 flex items-baseline gap-2">
+                <span className="text-slate-400">↓ 流动性 & 信用环境</span>
+                <span className="text-slate-600">— 比利率本身更早预警风险</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <MetricCard label="10Y 实际利率" value={usMacro?.indicators.tips10y?.value ?? null} unit="%" date={usMacro?.indicators.tips10y?.date} signal={(usMacro?.indicators.tips10y?.value ?? 0) > 2 ? 'negative' : (usMacro?.indicators.tips10y?.value ?? 0) > 1 ? 'warning' : 'positive'} description="TIPS · 黄金/股票核心" size="sm" />
+                <MetricCard label="10Y 通胀预期" value={usMacro?.indicators.breakeven10y?.value ?? null} unit="%" date={usMacro?.indicators.breakeven10y?.date} signal={(usMacro?.indicators.breakeven10y?.value ?? 0) > 2.5 ? 'warning' : 'positive'} description="债市定价的未来通胀" size="sm" />
+                <MetricCard label="30Y 房贷利率" value={usMacro?.indicators.mortgage30y?.value ?? null} unit="%" date={usMacro?.indicators.mortgage30y?.date} signal={(usMacro?.indicators.mortgage30y?.value ?? 0) > 7 ? 'negative' : (usMacro?.indicators.mortgage30y?.value ?? 0) > 5 ? 'warning' : 'positive'} description="居民最直接的利率" size="sm" />
+                <MetricCard label="联储资产负债表" value={usMacro?.indicators.fedBs?.value != null ? usMacro.indicators.fedBs.value / 1e6 : null} unit="T" date={usMacro?.indicators.fedBs?.date} description="美元 · QE↑ / QT↓" size="sm" />
+                <MetricCard label="高收益债利差" value={usMacro?.indicators.hyOas?.value ?? null} unit="%" date={usMacro?.indicators.hyOas?.date} signal={(usMacro?.indicators.hyOas?.value ?? 0) > 6 ? 'negative' : (usMacro?.indicators.hyOas?.value ?? 0) > 4 ? 'warning' : 'positive'} description="HY OAS · 风险偏好" size="sm" />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <IndicatorExplainer
                   emoji="🏦"
@@ -445,6 +488,63 @@ export default function Dashboard() {
                   relatedTo="2Y 跟随联储政策，10Y 反映长期增长预期 → 收益率曲线 → 经济周期判断"
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <IndicatorExplainer
+                  emoji="💸"
+                  title="高收益债利差（HY OAS）"
+                  subtitle="比 VIX 更早预警的信用风险温度计"
+                  currentValue={usMacro?.indicators.hyOas?.value}
+                  currentInterpretation={
+                    (usMacro?.indicators.hyOas?.value ?? 0) > 6 ? '信用紧张，资金避险——历史上往往领先股市下跌'
+                    : (usMacro?.indicators.hyOas?.value ?? 0) > 4 ? '利差走阔，需关注'
+                    : '利差收窄，市场风险偏好正常'
+                  }
+                  whatIsIt={'垃圾债（信用评级 BB 及以下）相对国债的额外利率补偿。当投资者担心企业违约时，会要求更高的回报，利差走阔；反之收窄。是市场情绪的"债券版 VIX"。'}
+                  readingLevels={[
+                    { range: '< 3.5%', meaning: '风险偏好乐观（如 2021 年低位）', tone: 'good' },
+                    { range: '3.5% - 5%', meaning: '正常区间', tone: 'good' },
+                    { range: '5% - 8%', meaning: '信用收紧，警惕', tone: 'warn' },
+                    { range: '> 8%', meaning: '危机水平（如 2008、2020 早期）', tone: 'bad' },
+                  ]}
+                  stockImpact={
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>HY OAS 走阔 <strong className="text-amber-300">领先股市下跌 2-6 周</strong>——专业资金先于散户撤退</li>
+                      <li>跨过 6% 通常意味着衰退或重大危机临近</li>
+                      <li>金融板块、小盘股（融资敏感）首当其冲</li>
+                    </ul>
+                  }
+                  relatedTo="联储利率 + 经济基本面 → 信用利差 → VIX → 股市风险偏好"
+                />
+
+                <IndicatorExplainer
+                  emoji="🎯"
+                  title="10Y 实际利率（TIPS）& 通胀预期（Breakeven）"
+                  subtitle="把 10Y 名义利率 = 实际利率 + 通胀预期 拆开看"
+                  currentValue={usMacro?.indicators.tips10y?.value}
+                  currentInterpretation={
+                    (usMacro?.indicators.tips10y?.value ?? 0) > 2 ? '实际利率高位，对成长股和黄金压力最大'
+                    : (usMacro?.indicators.tips10y?.value ?? 0) > 1 ? '中性偏紧'
+                    : (usMacro?.indicators.tips10y?.value ?? 0) > 0 ? '宽松环境，利好风险资产'
+                    : '负实际利率，强烈利好黄金/股票'
+                  }
+                  whatIsIt={'10Y 名义利率（DGS10）减去通胀预期 = 实际利率（TIPS 收益率），代表"扣除通胀后的真实回报率"。Breakeven 则是债券市场预期的未来 10 年平均通胀率。'}
+                  readingLevels={[
+                    { range: '实际利率 > 2%', meaning: '"硬"紧缩，估值压缩', tone: 'bad' },
+                    { range: '0% - 2%', meaning: '中性', tone: 'warn' },
+                    { range: '< 0%', meaning: '宽松（疫情期间）', tone: 'good' },
+                    { range: '通胀预期 > 2.5%', meaning: '通胀预期失锚风险', tone: 'warn' },
+                  ]}
+                  stockImpact={
+                    <ul className="list-disc list-inside space-y-1">
+                      <li><strong className="text-amber-300">实际利率是黄金的"反向指标"</strong>：实际利率↑→黄金↓</li>
+                      <li>对高估值科技股的压力比名义利率更精确</li>
+                      <li>通胀预期失控（&gt;3%）会让联储更激进 → 股市利空</li>
+                    </ul>
+                  }
+                  relatedTo="名义 10Y = TIPS + 通胀预期 → 折现率 → 股票/黄金估值"
+                />
+              </div>
             </section>
 
             {/* Section 2: 通胀 */}
@@ -498,9 +598,12 @@ export default function Dashboard() {
                 <span className="text-xs text-slate-500">— 经济温度计 + 美股的&ldquo;双刃剑&rdquo;</span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                <MetricCard label="失业率" value={usMacro?.indicators.unemployment?.value ?? null} unit="%" date={usMacro?.indicators.unemployment?.date} signal={(usMacro?.indicators.unemployment?.value ?? 0) < 4 ? 'positive' : (usMacro?.indicators.unemployment?.value ?? 0) < 5 ? 'neutral' : 'warning'} description="月度，滞后指标" size="sm" />
-                <MetricCard label="首申失业金" value={usMacro?.indicators.initialClaims?.value ?? null} date={usMacro?.indicators.initialClaims?.date} description="周度，领先指标" size="sm" />
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <MetricCard label="失业率" value={usMacro?.indicators.unemployment?.value ?? null} unit="%" date={usMacro?.indicators.unemployment?.date} signal={(usMacro?.indicators.unemployment?.value ?? 0) < 4 ? 'positive' : (usMacro?.indicators.unemployment?.value ?? 0) < 5 ? 'neutral' : 'warning'} description="月度，滞后" size="sm" />
+                <MetricCard label="首申失业金" value={usMacro?.indicators.initialClaims?.value ?? null} date={usMacro?.indicators.initialClaims?.date} description="周度，领先" size="sm" />
+                <MetricCard label="非农新增 NFP" value={usMacro?.indicators.nfpMoM?.value ?? null} date={usMacro?.indicators.nfp?.date} signal={(usMacro?.indicators.nfpMoM?.value ?? 0) > 200 ? 'positive' : (usMacro?.indicators.nfpMoM?.value ?? 0) > 100 ? 'warning' : 'negative'} description="千个工作 / 月" size="sm" />
+                <MetricCard label="工资增速 (YoY)" value={usMacro?.indicators.aheYoY?.value ?? null} unit="%" date={usMacro?.indicators.ahe?.date} signal={(usMacro?.indicators.aheYoY?.value ?? 0) > 4 ? 'warning' : 'positive'} description="平均时薪 · 通胀粘性" size="sm" />
+                <MetricCard label="JOLTS 职位空缺" value={usMacro?.indicators.jolts?.value != null ? usMacro.indicators.jolts.value / 1000 : null} unit="M" date={usMacro?.indicators.jolts?.date} description="个 · 劳动力需求领先" size="sm" />
                 <MetricCard label="消费者信心" value={usMacro?.indicators.consumerSentiment?.value ?? null} date={usMacro?.indicators.consumerSentiment?.date} signal={(usMacro?.indicators.consumerSentiment?.value ?? 0) > 80 ? 'positive' : (usMacro?.indicators.consumerSentiment?.value ?? 0) > 60 ? 'warning' : 'negative'} description="密歇根大学" size="sm" />
               </div>
 
@@ -575,6 +678,135 @@ export default function Dashboard() {
               />
             </section>
 
+            {/* Section 5: 美股估值与情绪 */}
+            <section className="space-y-3">
+              <div className="flex items-baseline gap-2 border-l-4 border-fuchsia-500 pl-3">
+                <h2 className="text-base font-bold text-white">📊 ⑤ 美股估值与情绪</h2>
+                <span className="text-xs text-slate-500">— 现在贵不贵？市场怕不怕？</span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <MetricCard
+                  label="巴菲特指标"
+                  value={usMacro?.indicators.buffett?.value ?? null}
+                  unit="%"
+                  date={usMacro?.indicators.buffett?.date}
+                  signal={(usMacro?.indicators.buffett?.value ?? 0) > 200 ? 'negative' : (usMacro?.indicators.buffett?.value ?? 0) > 130 ? 'warning' : 'positive'}
+                  description="Wilshire 5000 / GDP"
+                  size="sm"
+                />
+                <IndexHoverCard symbol="^VIX9D" label="VIX 9天">
+                  <MetricCard label="VIX 9天" value={market?.usVol?.find(q => q.symbol === '^VIX9D')?.price ?? null} change={market?.usVol?.find(q => q.symbol === '^VIX9D')?.changePercent} changeLabel="%" description="短期波动 · 悬停看走势" size="sm" />
+                </IndexHoverCard>
+                <IndexHoverCard symbol="^VIX" label="VIX 30天">
+                  <MetricCard label="VIX 30天" value={vix?.price ?? null} change={vix?.changePercent} changeLabel="%" signal={(vix?.price ?? 20) > 30 ? 'negative' : (vix?.price ?? 20) > 25 ? 'warning' : 'positive'} description="标准 VIX · 悬停看走势" size="sm" />
+                </IndexHoverCard>
+                <IndexHoverCard symbol="^VIX3M" label="VIX 3个月">
+                  <MetricCard label="VIX 3个月" value={market?.usVol?.find(q => q.symbol === '^VIX3M')?.price ?? null} change={market?.usVol?.find(q => q.symbol === '^VIX3M')?.changePercent} changeLabel="%" description="中期波动预期" size="sm" />
+                </IndexHoverCard>
+                <IndexHoverCard symbol="^VVIX" label="VVIX">
+                  <MetricCard label="VVIX" value={market?.usVol?.find(q => q.symbol === '^VVIX')?.price ?? null} change={market?.usVol?.find(q => q.symbol === '^VVIX')?.changePercent} changeLabel="%" description="VIX 的波动率" size="sm" />
+                </IndexHoverCard>
+                <IndexHoverCard symbol="^SKEW" label="SKEW 尾部风险">
+                  <MetricCard label="SKEW" value={market?.usVol?.find(q => q.symbol === '^SKEW')?.price ?? null} change={market?.usVol?.find(q => q.symbol === '^SKEW')?.changePercent} changeLabel="%" signal={(market?.usVol?.find(q => q.symbol === '^SKEW')?.price ?? 0) > 145 ? 'warning' : 'positive'} description="黑天鹅定价" size="sm" />
+                </IndexHoverCard>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <IndicatorExplainer
+                  emoji="🐂"
+                  title="巴菲特指标（Buffett Indicator）"
+                  subtitle="股神最看重的长期估值锚"
+                  currentValue={usMacro?.indicators.buffett?.value}
+                  currentInterpretation={
+                    (usMacro?.indicators.buffett?.value ?? 0) > 200 ? '极度高估区间——历史上未来 5-10 年回报偏低'
+                    : (usMacro?.indicators.buffett?.value ?? 0) > 130 ? '偏贵，但仍有上行空间'
+                    : (usMacro?.indicators.buffett?.value ?? 0) > 80 ? '合理估值'
+                    : '便宜区间——历史上买点'
+                  }
+                  whatIsIt={'美国所有上市公司总市值（Wilshire 5000 全市值指数）÷ 名义 GDP × 100。巴菲特说这是"任何时点估值的最佳单一指标"。基础逻辑：股市市值长期增速不能持续超过经济增速。'}
+                  readingLevels={[
+                    { range: '< 80%', meaning: '显著低估（如 2009 年 60%）', tone: 'good' },
+                    { range: '80% - 130%', meaning: '合理至小幅高估', tone: 'good' },
+                    { range: '130% - 200%', meaning: '明显高估', tone: 'warn' },
+                    { range: '> 200%', meaning: '极度高估（2021 顶部 ~210%）', tone: 'bad' },
+                  ]}
+                  stockImpact={
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>不是择时工具——可以多年保持&ldquo;偏贵&rdquo;</li>
+                      <li>但与<strong className="text-amber-300">未来 10 年股市回报负相关性极强</strong></li>
+                      <li>极端高位时降低仓位、增加现金/价值股配置往往是明智的</li>
+                    </ul>
+                  }
+                  relatedTo="GDP 增速 + Wilshire 5000（市值）→ Buffett 指标 → 长期回报预期"
+                />
+
+                <IndicatorExplainer
+                  emoji="🌀"
+                  title="VIX 期限结构（9天 / 30天 / 3月 / 6月）"
+                  subtitle="不只看 VIX 一个数，看曲线形状"
+                  whatIsIt={'VIX 系列是市场对不同时间长度（9天 / 30天 / 3月 / 6月）波动率的预期。把它们排成一条曲线，形状告诉你市场情绪。'}
+                  readingLevels={[
+                    { range: '正向（短<中<长）', meaning: 'Contango：市场平静，长期不确定 = 正常', tone: 'good' },
+                    { range: '近端走高', meaning: '短期有事件，仍未恐慌', tone: 'warn' },
+                    { range: '倒挂（短>长）', meaning: 'Backwardation：眼前正在恐慌——历史买点信号', tone: 'bad' },
+                    { range: 'VVIX > 110', meaning: '波动率本身在剧烈波动，警惕', tone: 'warn' },
+                  ]}
+                  stockImpact={
+                    <ul className="list-disc list-inside space-y-1">
+                      <li><strong className="text-emerald-300">VIX 期限倒挂（VIX9D &gt; VIX3M）</strong>历史上是 1-3 周内的反弹信号</li>
+                      <li>SKEW 指数 &gt; 145 = 期权市场在为&ldquo;黑天鹅&rdquo;支付溢价（机构在对冲）</li>
+                      <li>VVIX 是对冲基金最常监控的指标——衡量&ldquo;不确定性的不确定性&rdquo;</li>
+                    </ul>
+                  }
+                  relatedTo="VIX9D（即时） → VIX（30天） → VIX3M / VIX6M（远期） · VVIX（vol of vol） · SKEW（尾部）"
+                />
+              </div>
+            </section>
+
+            {/* Section 6: Mag 7 */}
+            <section className="space-y-3">
+              <div className="flex items-baseline gap-2 border-l-4 border-rose-500 pl-3">
+                <h2 className="text-base font-bold text-white">👑 ⑥ 七巨头（Magnificent 7）</h2>
+                <span className="text-xs text-slate-500">— 占 S&P 500 约 30% 权重，几乎决定了大盘走势</span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                {['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA'].map(sym => {
+                  const q = market?.mag7?.find(x => x.symbol === sym);
+                  return (
+                    <IndexHoverCard key={sym} symbol={sym} label={SYMBOL_DISPLAY[sym] || sym}>
+                      <MetricCard
+                        label={SYMBOL_DISPLAY[sym] || sym}
+                        value={q?.price ?? null}
+                        change={q?.changePercent}
+                        changeLabel="%"
+                        signal={(q?.changePercent ?? 0) > 0 ? 'positive' : (q?.changePercent ?? 0) < 0 ? 'negative' : 'neutral'}
+                        description={sym}
+                        size="sm"
+                      />
+                    </IndexHoverCard>
+                  );
+                })}
+              </div>
+
+              <div className="bg-slate-800/40 border border-slate-700/40 rounded-lg p-3 text-xs text-slate-400 leading-relaxed space-y-1">
+                <div><span className="text-slate-200 font-semibold">🔍 为什么单独看七巨头？</span></div>
+                <div>
+                  · 这 7 家公司合计市值 ~$15 万亿，占 S&P 500 总市值约 30%、纳指 100 约 45%
+                </div>
+                <div>
+                  · 当七巨头集体走强时，<strong className="text-emerald-300">大盘指数会被它们&quot;托起来&quot;</strong>，但其他 493 家公司可能在跌（&ldquo;市场宽度&rdquo;变差）
+                </div>
+                <div>
+                  · 反之，如果七巨头走弱，即使广义经济不错，大盘指数也会显著下跌（2022 年情形）
+                </div>
+                <div>
+                  · 看个股可以验证&quot;指数上涨是真扩散，还是少数股票拉升&quot; — 是检验市场健康度最直接的方法
+                </div>
+              </div>
+            </section>
+
             {/* Macro chain visualization */}
             <MacroChain />
 
@@ -612,6 +844,8 @@ export default function Dashboard() {
                 <LineChart title="美债 10Y 收益率（近5年）" data={(usMacro?.history.treasury10y ?? []).map(d => ({ date: d.date, value: d.value }))} unit="%" color="#6366f1" height={200} referenceValue={4} referenceLabel="4%" />
                 <LineChart title="CPI 通胀走势（近3年）" data={(usMacro?.history.cpi ?? []).map(d => ({ date: d.date, value: d.value }))} color="#ec4899" height={200} />
                 <LineChart title="失业率走势（近3年）" data={(usMacro?.history.unemployment ?? []).map(d => ({ date: d.date, value: d.value }))} unit="%" color="#ef4444" height={200} referenceValue={4} referenceLabel="4%" />
+                <LineChart title="高收益债利差 HY OAS（近5年）" data={(usMacro?.history.hyOas ?? []).map(d => ({ date: d.date, value: d.value }))} unit="%" color="#fb7185" height={200} referenceValue={5} referenceLabel="5%" />
+                <LineChart title="联储资产负债表 (近5年)" data={(usMacro?.history.fedBs ?? []).map(d => ({ date: d.date, value: d.value }))} color="#22d3ee" height={200} formatValue={(v: number) => `${(v / 1e6).toFixed(1)}T`} />
                 <BarChart title="GDP 季度增速" data={(usMacro?.history.gdp ?? []).map(d => ({ date: d.date, value: d.value }))} unit="%" height={200} />
               </div>
             </section>

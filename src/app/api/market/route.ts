@@ -15,6 +15,25 @@ const US_SYMBOLS = [
   MARKET_SYMBOLS.US10Y,
 ];
 
+const US_VOL_SYMBOLS = [
+  MARKET_SYMBOLS.VIX9D,
+  MARKET_SYMBOLS.VIX,
+  MARKET_SYMBOLS.VIX3M,
+  MARKET_SYMBOLS.VIX6M,
+  MARKET_SYMBOLS.VVIX,
+  MARKET_SYMBOLS.SKEW,
+];
+
+const MAG7_SYMBOLS = [
+  MARKET_SYMBOLS.AAPL,
+  MARKET_SYMBOLS.MSFT,
+  MARKET_SYMBOLS.NVDA,
+  MARKET_SYMBOLS.GOOGL,
+  MARKET_SYMBOLS.AMZN,
+  MARKET_SYMBOLS.META,
+  MARKET_SYMBOLS.TSLA,
+];
+
 const US_SECTOR_SYMBOLS = [
   MARKET_SYMBOLS.XLK,
   MARKET_SYMBOLS.XLF,
@@ -50,11 +69,20 @@ const GLOBAL_SYMBOLS = [
 
 export async function GET() {
   try {
-    const allSymbols = [...US_SYMBOLS, ...US_SECTOR_SYMBOLS, ...CN_SYMBOLS, ...GLOBAL_SYMBOLS];
+    const allSymbols = Array.from(new Set([
+      ...US_SYMBOLS,
+      ...US_VOL_SYMBOLS,
+      ...MAG7_SYMBOLS,
+      ...US_SECTOR_SYMBOLS,
+      ...CN_SYMBOLS,
+      ...GLOBAL_SYMBOLS,
+    ]));
     const quotes = await getStooqQuotes(allSymbols);
 
     const result = {
       us: quotes.filter(q => (US_SYMBOLS as readonly string[]).includes(q.symbol)),
+      usVol: quotes.filter(q => (US_VOL_SYMBOLS as readonly string[]).includes(q.symbol)),
+      mag7: quotes.filter(q => (MAG7_SYMBOLS as readonly string[]).includes(q.symbol)),
       usSectors: quotes.filter(q => (US_SECTOR_SYMBOLS as readonly string[]).includes(q.symbol)),
       cn: quotes.filter(q => (CN_SYMBOLS as readonly string[]).includes(q.symbol)),
       global: quotes.filter(q => (GLOBAL_SYMBOLS as readonly string[]).includes(q.symbol)),
@@ -66,7 +94,7 @@ export async function GET() {
     });
   } catch (err) {
     return NextResponse.json(
-      { us: [], usSectors: [], cn: [], global: [], updatedAt: new Date().toISOString(), error: String(err) },
+      { us: [], usVol: [], mag7: [], usSectors: [], cn: [], global: [], updatedAt: new Date().toISOString(), error: String(err) },
       { status: 200 }
     );
   }
