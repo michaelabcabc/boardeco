@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getQuotes, MARKET_SYMBOLS } from '@/lib/yahoo';
+import { MARKET_SYMBOLS } from '@/lib/yahoo';
+import { getStooqQuotes } from '@/lib/stooq';
 
-// Force dynamic so it's never pre-rendered at build time
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -29,22 +29,10 @@ const GLOBAL_SYMBOLS = [
   MARKET_SYMBOLS.COPPER,
 ];
 
-// Retry with exponential backoff for rate limiting
-async function getQuotesWithRetry(symbols: string[], maxRetries = 3) {
-  for (let i = 0; i < maxRetries; i++) {
-    const quotes = await getQuotes(symbols);
-    if (quotes.length > 0) return quotes;
-    if (i < maxRetries - 1) {
-      await new Promise(r => setTimeout(r, 1000 * (i + 1)));
-    }
-  }
-  return [];
-}
-
 export async function GET() {
   try {
     const allSymbols = [...US_SYMBOLS, ...CN_SYMBOLS, ...GLOBAL_SYMBOLS];
-    const quotes = await getQuotesWithRetry(allSymbols);
+    const quotes = await getStooqQuotes(allSymbols);
 
     const result = {
       us: quotes.filter(q => (US_SYMBOLS as readonly string[]).includes(q.symbol)),
@@ -54,15 +42,12 @@ export async function GET() {
     };
 
     return NextResponse.json(result, {
-      headers: {
-        'Cache-Control': 'no-store, must-revalidate',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: { 'Cache-Control': 'no-store, must-revalidate' },
     });
   } catch (err) {
     return NextResponse.json(
       { us: [], cn: [], global: [], updatedAt: new Date().toISOString(), error: String(err) },
-      { status: 200 } // Return 200 with empty data so UI handles gracefully
+      { status: 200 }
     );
   }
 }

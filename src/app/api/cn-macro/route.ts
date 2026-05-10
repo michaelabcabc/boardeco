@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getChinaIndicator, WB_INDICATORS } from '@/lib/worldbank';
-import { getQuotes } from '@/lib/yahoo';
+import { getStooqQuotes } from '@/lib/stooq';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -35,14 +35,14 @@ export async function GET() {
       getChinaIndicator(WB_INDICATORS.IMPORTS, 12),
       getChinaIndicator(WB_INDICATORS.GDP_TOTAL, 12),
       getChinaIndicator(WB_INDICATORS.BROAD_MONEY, 12),
-      getQuotes(['USDCNY=X', 'CNH=X', '^HSI', '000001.SS']),
+      getStooqQuotes(['USDCNY=X']),
     ]);
 
     const latest = (arr: typeof gdpGrowth) => arr[0] || null;
     const toHistory = (arr: typeof gdpGrowth) =>
       arr.map(d => ({ date: d.date, value: d.value })).reverse();
 
-    const usdcny = fxData.find(q => q.symbol === 'USDCNY=X');
+    const usdcny = fxData.find((q: { symbol: string }) => q.symbol === 'USDCNY=X');
 
     return NextResponse.json({
       indicators: {
