@@ -11,6 +11,7 @@ import IndicatorExplainer from '@/components/sections/IndicatorExplainer';
 import MacroChain from '@/components/sections/MacroChain';
 import SectorSensitivity from '@/components/sections/SectorSensitivity';
 import CyclePhase from '@/components/sections/CyclePhase';
+import IndexHoverCard from '@/components/cards/IndexHoverCard';
 
 interface QuoteItem {
   symbol: string;
@@ -335,26 +336,28 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 {['^GSPC', '^NDX', '^IXIC', '^DJI', '^RUT', '^VIX'].map(sym => {
                   const q = getQuote(sym);
+                  const label = SYMBOL_DISPLAY[sym] || sym;
                   return (
-                    <MetricCard
-                      key={sym}
-                      label={SYMBOL_DISPLAY[sym] || sym}
-                      value={q?.price ?? null}
-                      change={q?.changePercent}
-                      changeLabel="%"
-                      signal={sym === '^VIX'
-                        ? ((q?.price ?? 20) > 25 ? 'warning' : (q?.price ?? 20) > 30 ? 'negative' : 'positive')
-                        : ((q?.changePercent ?? 0) > 0 ? 'positive' : (q?.changePercent ?? 0) < 0 ? 'negative' : 'neutral')}
-                      description={
-                        sym === '^GSPC' ? '500大蓝筹' :
-                        sym === '^NDX' ? '纳斯达克100大盘科技' :
-                        sym === '^IXIC' ? '所有纳斯达克股票' :
-                        sym === '^DJI' ? '30只工业蓝筹' :
-                        sym === '^RUT' ? '小盘股代表' :
-                        '波动率 / "恐惧指数"'
-                      }
-                      size="sm"
-                    />
+                    <IndexHoverCard key={sym} symbol={sym} label={label}>
+                      <MetricCard
+                        label={label}
+                        value={q?.price ?? null}
+                        change={q?.changePercent}
+                        changeLabel="%"
+                        signal={sym === '^VIX'
+                          ? ((q?.price ?? 20) > 25 ? 'warning' : (q?.price ?? 20) > 30 ? 'negative' : 'positive')
+                          : ((q?.changePercent ?? 0) > 0 ? 'positive' : (q?.changePercent ?? 0) < 0 ? 'negative' : 'neutral')}
+                        description={
+                          sym === '^GSPC' ? '500大蓝筹 · 悬停看走势' :
+                          sym === '^NDX' ? '纳斯达克100 · 悬停看走势' :
+                          sym === '^IXIC' ? '纳斯达克综合 · 悬停看走势' :
+                          sym === '^DJI' ? '30只工业蓝筹 · 悬停看走势' :
+                          sym === '^RUT' ? '小盘股代表 · 悬停看走势' :
+                          '波动率指数 · 悬停看走势'
+                        }
+                        size="sm"
+                      />
+                    </IndexHoverCard>
                   );
                 })}
               </div>
