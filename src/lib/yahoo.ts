@@ -201,6 +201,7 @@ export async function getHistorical(
 export const MARKET_SYMBOLS = {
   SP500: '^GSPC',
   NASDAQ: '^IXIC',
+  NASDAQ100: '^NDX',
   DOW: '^DJI',
   RUSSELL2000: '^RUT',
   VIX: '^VIX',
@@ -217,11 +218,29 @@ export const MARKET_SYMBOLS = {
   DXY: 'DX-Y.NYB',
   US10Y: '^TNX',
   US2Y: '^IRX',
+  // US sector ETFs (SPDR Select Sector)
+  XLK: 'XLK',  // Tech
+  XLF: 'XLF',  // Financial
+  XLE: 'XLE',  // Energy
+  XLV: 'XLV',  // Health Care
+  XLY: 'XLY',  // Consumer Discretionary
+  XLP: 'XLP',  // Consumer Staples
+  XLI: 'XLI',  // Industrial
+  XLU: 'XLU',  // Utilities
+  XLRE: 'XLRE', // Real Estate
+  XLB: 'XLB',  // Materials
+  XLC: 'XLC',  // Communication Services
+  // Magnificent 7 trackers
+  SMH: 'SMH',  // Semiconductors
+  // Bonds
+  TLT: 'TLT',  // 20+ Yr Treasury ETF
+  HYG: 'HYG',  // High Yield Corp Bond ETF
 } as const;
 
 export const SYMBOL_NAMES: Record<string, string> = {
   '^GSPC': 'S&P 500',
-  '^IXIC': '纳斯达克',
+  '^IXIC': '纳斯达克综合',
+  '^NDX': '纳斯达克100',
   '^DJI': '道琼斯',
   '^RUT': '罗素2000',
   '^VIX': 'VIX恐慌指数',
@@ -238,4 +257,18 @@ export const SYMBOL_NAMES: Record<string, string> = {
   'DX-Y.NYB': '美元指数',
   '^TNX': '美债10Y收益率',
   '^IRX': '美债13周收益率',
+  XLK: '科技板块 (XLK)',
+  XLF: '金融板块 (XLF)',
+  XLE: '能源板块 (XLE)',
+  XLV: '医疗板块 (XLV)',
+  XLY: '可选消费 (XLY)',
+  XLP: '必选消费 (XLP)',
+  XLI: '工业板块 (XLI)',
+  XLU: '公用事业 (XLU)',
+  XLRE: '房地产 (XLRE)',
+  XLB: '原材料 (XLB)',
+  XLC: '通信服务 (XLC)',
+  SMH: '半导体 (SMH)',
+  TLT: '20年+长债 (TLT)',
+  HYG: '高收益债 (HYG)',
 };
