@@ -5,9 +5,11 @@ import { Search, ExternalLink, RefreshCw } from 'lucide-react';
 import LineChart from '@/components/charts/LineChart';
 import MetricRow from './MetricRow';
 import Diagnostic from './Diagnostic';
+import AnalysisFramework from './AnalysisFramework';
+import ValuationDeepDive from './ValuationDeepDive';
+import DCFCalculator from './DCFCalculator';
 import {
   fmtMoney, fmtPercent, fmtRatio, fmtPrice, fmtCount,
-  classifyPE, classifyPB, classifyPS, classifyPEG,
   classifyMargin, classifyROE, classifyDebtEquity, classifyCurrentRatio,
   classifyGrowth, classifyTargetUpside, classifyRecommendation,
 } from './format';
@@ -63,6 +65,9 @@ interface Fundamentals {
   recommendationMean?: number;
   trailingEps?: number;
   forwardEps?: number;
+  sharesOutstanding?: number;
+  enterpriseValue?: number;
+  bookValue?: number;
 }
 
 interface PricePoint { date: string; close: number }
@@ -119,9 +124,9 @@ export default function StockAnalysis() {
           <div>
             <h2 className="text-base sm:text-lg font-bold text-white mb-1">美股个股分析 — 小白结构化看板</h2>
             <p className="text-xs text-slate-400 leading-relaxed">
-              输入美股代码（如 <code className="text-rose-300">AAPL</code> / <code className="text-rose-300">NVDA</code> / <code className="text-rose-300">BRK-B</code>），自动按
-              <strong className="text-slate-200">公司画像 → 价格表现 → 估值 → 盈利能力 → 成长性 → 财务健康 → 分析师观点 → 自动诊断</strong>
-              的结构生成解读，每个指标都附阈值说明。
+              输入美股代码，按一套<strong className="text-slate-200">分析框架</strong>从商业质量到 DCF 内在价值逐步展开。
+              重点在<strong className="text-rose-300">估值章节</strong> — 每种方法都解释了&ldquo;考虑了什么&rdquo;和&ldquo;没考虑什么&rdquo;，
+              再加一个可调假设的 <strong className="text-rose-300">DCF 计算器</strong>。
             </p>
           </div>
         </div>
@@ -150,7 +155,6 @@ export default function StockAnalysis() {
         </button>
       </form>
 
-      {/* Quick picks */}
       {!data && !loading && (
         <div>
           <div className="text-xs text-slate-500 mb-2">热门标的：</div>
@@ -179,9 +183,13 @@ export default function StockAnalysis() {
   );
 }
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+function Section({
+  id, title, hint, children,
+}: {
+  id?: string; title: string; hint?: string; children: React.ReactNode;
+}) {
   return (
-    <section className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+    <section id={id} className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4 scroll-mt-20">
       <h3 className="text-sm font-bold text-slate-100 mb-1">{title}</h3>
       {hint && <p className="text-xs text-slate-500 mb-3 leading-relaxed">{hint}</p>}
       {!hint && <div className="mb-2" />}
@@ -191,9 +199,7 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 }
 
 function StockReport({
-  data,
-  chartRange,
-  setChartRange,
+  data, chartRange, setChartRange,
 }: {
   data: StockResponse;
   chartRange: '1y' | '5y';
@@ -202,16 +208,10 @@ function StockReport({
   const f = data.fundamentals;
   const ccy = f.currency || 'USD';
 
-  // Quick computed values
-  const range52 = (f.price != null && f.fiftyTwoWeekHigh != null && f.fiftyTwoWeekLow != null)
+  const range52 = (f.price != null && f.fiftyTwoWeekHigh != null && f.fiftyTwoWeekLow != null && f.fiftyTwoWeekHigh > f.fiftyTwoWeekLow)
     ? Math.max(0, Math.min(1, (f.price - f.fiftyTwoWeekLow) / (f.fiftyTwoWeekHigh - f.fiftyTwoWeekLow)))
     : null;
 
-  const peCls = classifyPE(f.trailingPE);
-  const fpeCls = classifyPE(f.forwardPE);
-  const pbCls = classifyPB(f.priceToBook);
-  const psCls = classifyPS(f.priceToSalesTrailing12Months);
-  const pegCls = classifyPEG(f.pegRatio);
   const profitCls = classifyMargin(f.profitMargins);
   const opCls = classifyMargin(f.operatingMargins);
   const grossCls = classifyMargin(f.grossMargins);
@@ -225,6 +225,8 @@ function StockReport({
   const recCls = classifyRecommendation(f.recommendationKey);
 
   const chartData = (data.history[chartRange] ?? []).map(p => ({ date: p.date, value: p.close }));
+
+  const netDebt = (f.totalDebt ?? 0) - (f.totalCash ?? 0);
 
   return (
     <div className="space-y-4">
@@ -244,12 +246,8 @@ function StockReport({
               {f.fullTimeEmployees != null && <span><span className="text-slate-600">员工：</span>{f.fullTimeEmployees.toLocaleString()}</span>}
             </div>
             {f.website && (
-              <a
-                href={f.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 mt-2"
-              >
+              <a href={f.website} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 mt-2">
                 {f.website.replace(/^https?:\/\//, '')} <ExternalLink size={10} />
               </a>
             )}
@@ -264,47 +262,34 @@ function StockReport({
                 {f.priceChangePct >= 0 ? '+' : ''}{f.priceChangePct.toFixed(2)}%
               </div>
             )}
+            <div className="text-[10px] text-slate-500 mt-1">市值 {fmtMoney(f.marketCap, '') ?? '—'}</div>
           </div>
         </div>
-
         {f.longBusinessSummary && (
-          <p className="text-xs text-slate-400 leading-relaxed mt-4 line-clamp-4">
-            {f.longBusinessSummary}
-          </p>
+          <p className="text-xs text-slate-400 leading-relaxed mt-4 line-clamp-4">{f.longBusinessSummary}</p>
         )}
       </section>
 
-      {/* Price chart + 52-week */}
+      {/* Price chart */}
       <section className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-bold text-slate-100">📈 价格走势</h3>
           <div className="flex items-center gap-1 bg-slate-900/60 rounded-md p-0.5">
             {(['1y', '5y'] as const).map(r => (
-              <button
-                key={r}
-                onClick={() => setChartRange(r)}
+              <button key={r} onClick={() => setChartRange(r)}
                 className={`text-xs px-2.5 py-0.5 rounded transition-colors ${
                   chartRange === r ? 'bg-indigo-500/20 text-indigo-300' : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
+                }`}>
                 {r === '1y' ? '近1年' : '近5年'}
               </button>
             ))}
           </div>
         </div>
         {chartData.length > 0 ? (
-          <LineChart
-            title=""
-            data={chartData}
-            color="#6366f1"
-            height={220}
-            formatValue={(v: number) => v.toFixed(2)}
-          />
+          <LineChart title="" data={chartData} color="#6366f1" height={220} formatValue={(v: number) => v.toFixed(2)} />
         ) : (
           <div className="h-[220px] flex items-center justify-center text-xs text-slate-500">无价格数据</div>
         )}
-
-        {/* 52-week range bar */}
         {range52 !== null && (
           <div className="mt-3">
             <div className="flex justify-between text-xs text-slate-500 mb-1">
@@ -313,112 +298,122 @@ function StockReport({
               <span>52周高 {f.fiftyTwoWeekHigh?.toFixed(2)}</span>
             </div>
             <div className="relative h-2 bg-slate-800 rounded-full">
-              <div
-                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-indigo-400 ring-2 ring-slate-900"
-                style={{ left: `${range52 * 100}%`, transform: 'translate(-50%, -50%)' }}
-              />
+              <div className="absolute top-1/2 w-3 h-3 rounded-full bg-indigo-400 ring-2 ring-slate-900"
+                style={{ left: `${range52 * 100}%`, transform: 'translate(-50%, -50%)' }} />
             </div>
           </div>
         )}
       </section>
 
-      {/* Two-column metric grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Section
-          title="💰 价格 & 市值"
-          hint="看公司有多大、市场怎么定价、波动多大"
-        >
-          <MetricRow label="市值" value={fmtMoney(f.marketCap, '')} hint="公司全部股票的市场价值" />
-          <MetricRow label="Beta（波动性）" value={fmtRatio(f.beta)} hint="相对 S&P 500 的波动倍数；>1.5 偏激进，<0.7 偏防御" />
-          <MetricRow label="50日均价" value={fmtPrice(f.fiftyDayAverage, '')} hint="短期趋势参考线" />
-          <MetricRow label="200日均价" value={fmtPrice(f.twoHundredDayAverage, '')} hint="长期趋势参考线" />
-          <MetricRow label="EPS（TTM）" value={fmtRatio(f.trailingEps)} hint="过去12个月每股盈利" />
-          <MetricRow label="EPS（前瞻）" value={fmtRatio(f.forwardEps)} hint="分析师未来12个月预期" />
-        </Section>
+      {/* Framework map */}
+      <AnalysisFramework />
 
-        <Section
-          title="📊 估值"
-          hint="贵不贵？常用指标：股价 / 盈利、股价 / 净资产、股价 / 营收"
-        >
-          <MetricRow label="P/E（市盈率，TTM）" value={fmtRatio(f.trailingPE)} tone={peCls.tone} tag={peCls.tag} hint="股价 ÷ 每股盈利。<15 便宜、15-25 合理、>40 高估" />
-          <MetricRow label="Forward P/E（前瞻）" value={fmtRatio(f.forwardPE)} tone={fpeCls.tone} tag={fpeCls.tag} hint="基于未来盈利预期；比 TTM 更看未来" />
-          <MetricRow label="P/B（市净率）" value={fmtRatio(f.priceToBook)} tone={pbCls.tone} tag={pbCls.tag} hint="股价 ÷ 每股净资产。银行/保险常用" />
-          <MetricRow label="P/S（市销率）" value={fmtRatio(f.priceToSalesTrailing12Months)} tone={psCls.tone} tag={psCls.tag} hint="股价 ÷ 每股营收。亏损/早期成长股用得多" />
-          <MetricRow label="PEG（PE / 增长率）" value={fmtRatio(f.pegRatio)} tone={pegCls.tone} tag={pegCls.tag} hint="<1 增长能撑起估值；>2 增长跟不上估值" />
-          <MetricRow label="EV / EBITDA" value={fmtRatio(f.enterpriseToEbitda)} hint="跨资本结构估值；常用 6-12 区间" />
-        </Section>
-
-        <Section
-          title="💵 盈利能力"
-          hint="赚钱效率：每 100 元营收能赚多少？资本回报率？"
-        >
+      {/* ① 商业质量 */}
+      <Section
+        id="sec-quality"
+        title="① 商业质量与护城河"
+        hint="高毛利 + 高 ROE 是有竞争壁垒的标志（品牌、技术、网络效应、转换成本）。一家好生意能在竞争中保持高利润率，烂生意只能拼价格。"
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+          <MetricRow label="毛利率（Gross Margin）" value={fmtPercent(f.grossMargins)} tone={grossCls.tone} tag={grossCls.tag} hint="营收减直接成本；行业差异大（软件 70%+，零售 20%）" />
+          <MetricRow label="经营利润率" value={fmtPercent(f.operatingMargins)} tone={opCls.tone} tag={opCls.tag} hint="日常经营赚钱效率；剔除融资和税" />
+          <MetricRow label="净利润率" value={fmtPercent(f.profitMargins)} tone={profitCls.tone} tag={profitCls.tag} hint="最终股东能拿到的比例" />
+          <MetricRow label="ROE（股东回报率）" value={fmtPercent(f.returnOnEquity)} tone={roeCls.tone} tag={roeCls.tag} hint="净利润 ÷ 股东权益。15%+ 算优秀，长期看是质量第一指标" />
+          <MetricRow label="ROA（资产回报率）" value={fmtPercent(f.returnOnAssets)} tone={roaCls.tone} hint="净利润 ÷ 总资产。轻资产模式天然更高" />
           <MetricRow label="营收（TTM）" value={fmtMoney(f.totalRevenue, '')} hint="过去12个月总收入" />
-          <MetricRow label="EBITDA" value={fmtMoney(f.ebitda, '')} hint="息税折旧摊销前利润；衡量主业现金生成能力" />
-          <MetricRow label="毛利率" value={fmtPercent(f.grossMargins)} tone={grossCls.tone} tag={grossCls.tag} hint="营收减直接成本后的比例；行业差异大" />
-          <MetricRow label="经营利润率" value={fmtPercent(f.operatingMargins)} tone={opCls.tone} tag={opCls.tag} hint="日常经营赚钱效率" />
-          <MetricRow label="净利润率" value={fmtPercent(f.profitMargins)} tone={profitCls.tone} tag={profitCls.tag} hint=">15% 算高利润，>25% 极高利润" />
-          <MetricRow label="ROE（股东回报）" value={fmtPercent(f.returnOnEquity)} tone={roeCls.tone} tag={roeCls.tag} hint="净利润 ÷ 股东权益。15-30% 优秀" />
-          <MetricRow label="ROA（资产回报）" value={fmtPercent(f.returnOnAssets)} tone={roaCls.tone} hint="净利润 ÷ 总资产。轻资产模式更高" />
-        </Section>
+          <MetricRow label="EBITDA" value={fmtMoney(f.ebitda, '')} hint="主业现金生成能力（剔除税、利息、折旧）" />
+        </div>
+        <div className="mt-3 text-xs text-slate-500 bg-slate-900/40 rounded-lg p-2.5 leading-relaxed">
+          🔗 <span className="text-slate-300 font-semibold">连接下一节：</span>
+          高质量的生意配合<strong>持续的成长</strong>才能创造长期回报。下面看：增速能不能保持？
+        </div>
+      </Section>
 
-        <Section
-          title="🚀 成长性"
-          hint="增速决定估值上限；同时关注盈利质量"
-        >
-          <MetricRow label="营收 YoY（最近季）" value={fmtPercent(f.revenueGrowth)} tone={revGrowthCls.tone} tag={revGrowthCls.tag} hint=">15% 高增长，>30% 爆发" />
-          <MetricRow label="盈利 YoY" value={fmtPercent(f.earningsGrowth)} tone={epsGrowthCls.tone} tag={epsGrowthCls.tag} hint="净利润同比；与营收对比看是&ldquo;增收不增利&rdquo;" />
-          <MetricRow label="EPS 季度增速" value={fmtPercent(f.earningsQuarterlyGrowth)} hint="环比近期，常用于趋势变化" />
-          <MetricRow label="自由现金流" value={fmtMoney(f.freeCashflow, '')} hint="经营现金流 − 资本支出。为正才算&ldquo;真赚到钱&rdquo;" />
-        </Section>
+      {/* ② 成长性 */}
+      <Section
+        id="sec-growth"
+        title="② 成长性"
+        hint="增速决定估值上限。但要看&ldquo;质&rdquo; — 是高利润率自然增长，还是烧钱补贴换来的？自由现金流为正才算&ldquo;真赚到钱&rdquo;。"
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+          <MetricRow label="营收 YoY（最近季）" value={fmtPercent(f.revenueGrowth)} tone={revGrowthCls.tone} tag={revGrowthCls.tag} hint="季度营收同比；>15% 高增长，>30% 爆发" />
+          <MetricRow label="盈利 YoY" value={fmtPercent(f.earningsGrowth)} tone={epsGrowthCls.tone} tag={epsGrowthCls.tag} hint="净利润同比；与营收对比看是否&ldquo;增收不增利&rdquo;" />
+          <MetricRow label="EPS 季度增速" value={fmtPercent(f.earningsQuarterlyGrowth)} hint="近期趋势加速 / 减速" />
+          <MetricRow label="自由现金流" value={fmtMoney(f.freeCashflow, '')} hint="经营现金流 − 资本支出；为正才能给股东、再投资、还债" />
+        </div>
+        <div className="mt-3 text-xs text-slate-500 bg-slate-900/40 rounded-lg p-2.5 leading-relaxed">
+          🔗 <span className="text-slate-300 font-semibold">连接下一节：</span>
+          就算生意好、增长快，<strong>衰退期能不能扛住</strong>？看资产负债表的现金 / 债务。
+        </div>
+      </Section>
 
-        <Section
-          title="🛡️ 财务健康"
-          hint="能不能扛过经济下行？现金、债务、流动比率"
-        >
+      {/* ③ 财务健康 */}
+      <Section
+        id="sec-health"
+        title="③ 财务健康"
+        hint="经济下行时，杠杆高的公司先死。看：现金能撑多久？债务结构是否安全？流动性是否充足？"
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
           <MetricRow label="现金及短投" value={fmtMoney(f.totalCash, '')} hint="账上的&ldquo;子弹&rdquo;" />
           <MetricRow label="总负债" value={fmtMoney(f.totalDebt, '')} hint="所有有息负债总和" />
+          <MetricRow label="净负债（债务-现金）" value={fmtMoney(netDebt, '')} hint="负数表示净现金状态，财务非常稳健" />
           <MetricRow label="负债 / 权益" value={fmtRatio(f.debtToEquity)} tone={deCls.tone} tag={deCls.tag} hint="<50 低杠杆，>200 高杠杆" />
-          <MetricRow label="流动比率" value={fmtRatio(f.currentRatio)} tone={crCls.tone} tag={crCls.tag} hint="流动资产 / 流动负债。>1.5 稳健" />
-        </Section>
+          <MetricRow label="流动比率" value={fmtRatio(f.currentRatio)} tone={crCls.tone} tag={crCls.tag} hint="流动资产 / 流动负债。>1.5 稳健，<1 短期偿付承压" />
+        </div>
+        <div className="mt-3 text-xs text-slate-500 bg-slate-900/40 rounded-lg p-2.5 leading-relaxed">
+          🔗 <span className="text-slate-300 font-semibold">连接下一节：</span>
+          确认了是好生意 + 能扛住衰退后，最关键的问题来了：<strong>现在这个价格合理吗？</strong>
+        </div>
+      </Section>
 
-        <Section
-          title="💎 股息 & 分析师"
-          hint="分红回报 + 华尔街共识"
-        >
-          <MetricRow label="股息率" value={fmtPercent(f.dividendYield)} hint="年股息 / 股价；高股息股 >3%" />
-          <MetricRow label="派息率" value={fmtPercent(f.payoutRatio)} hint=">80% 可能不可持续；50-70% 健康" />
+      {/* ④ 估值（深入展开）*/}
+      <Section
+        id="sec-valuation"
+        title="④ 估值（深入展开）"
+        hint="本节是核心 — 6 种估值方法各自展开，逐个解释&ldquo;考虑了什么 / 没考虑什么&rdquo;，让你判断它们在<strong>这家具体公司</strong>上是否适用。"
+      >
+        <ValuationDeepDive f={f} />
+      </Section>
+
+      {/* ⑤ DCF */}
+      <Section
+        id="sec-dcf"
+        title="⑤ DCF 内在价值估算"
+        hint="所有估值方法里最&ldquo;基本面&rdquo;的：把公司未来现金流折现到今天。但假设非常敏感 — 重点是<strong>敏感性测试</strong>，不是相信一个&ldquo;答案&rdquo;。"
+      >
+        <DCFCalculator
+          symbol={data.symbol}
+          fcf={f.freeCashflow ?? 0}
+          sharesOutstanding={f.sharesOutstanding ?? 0}
+          netDebt={netDebt}
+          currentPrice={f.price ?? 0}
+          defaultGrowth={f.revenueGrowth ?? f.earningsGrowth ?? 0.08}
+        />
+      </Section>
+
+      {/* Analyst */}
+      <Section title="💎 分析师共识 & 股息">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
           <MetricRow label="分析师评级" value={f.recommendationKey ?? null} tone={recCls.tone} tag={recCls.tag} hint="买入 / 持有 / 卖出 共识" />
-          <MetricRow label="目标价（均值）" value={fmtPrice(f.targetMeanPrice, '')} tone={targetCls.tone} tag={targetCls.tag} hint="分析师未来12个月目标价" />
+          <MetricRow label="覆盖分析师数" value={fmtCount(f.numberOfAnalystOpinions)} hint="覆盖越多，共识越可信" />
+          <MetricRow label="目标价（均值）" value={fmtPrice(f.targetMeanPrice, '')} tone={targetCls.tone} tag={targetCls.tag} hint="未来12个月共识目标价" />
           <MetricRow label="目标价区间" value={
             f.targetLowPrice != null && f.targetHighPrice != null
               ? `${f.targetLowPrice.toFixed(2)} ~ ${f.targetHighPrice.toFixed(2)}`
               : null
           } hint="低估 / 高估边界" />
-          <MetricRow label="覆盖分析师数" value={fmtCount(f.numberOfAnalystOpinions)} hint="覆盖越多，共识越可信" />
-        </Section>
-      </div>
-
-      {/* Diagnostic */}
-      <Section
-        title="🩺 自动诊断（规则推断）"
-        hint="把上面所有指标按通用阈值翻译成一句话评价"
-      >
-        <Diagnostic fundamentals={f} />
+          <MetricRow label="股息率" value={fmtPercent(f.dividendYield)} hint="年股息 / 股价；高股息股 >3%" />
+          <MetricRow label="派息率" value={fmtPercent(f.payoutRatio)} hint=">80% 不可持续；50-70% 健康" />
+        </div>
+        <p className="mt-3 text-[11px] text-slate-500 leading-relaxed">
+          💡 分析师共识有<strong className="text-amber-400">系统性乐观偏差</strong> — 历史上&ldquo;卖出&rdquo;评级极少。
+          目标价是 12 个月预期，而不是公允价值。把它和 DCF 结果对比 — 如果两者差距大，说明分析师和你的假设差距大。
+        </p>
       </Section>
 
-      {/* Beginner cheat sheet */}
-      <Section title="📚 看个股的逻辑顺序（小白指引）">
-        <ol className="text-xs text-slate-400 space-y-1.5 list-decimal list-inside leading-relaxed">
-          <li><strong className="text-slate-200">先看商业模式</strong>：公司是做什么的？属于哪个行业？这决定了估值方法（科技股看 P/S/PEG，银行看 P/B，REIT 看 FFO 等）</li>
-          <li><strong className="text-slate-200">再看护城河</strong>：高毛利 + 高 ROE 通常意味着有竞争壁垒（品牌、技术、网络效应、转换成本）</li>
-          <li><strong className="text-slate-200">看成长性</strong>：营收/盈利同比增速 — 是加速还是减速？季度数据连续 2-3 季的趋势比单季更重要</li>
-          <li><strong className="text-slate-200">看估值是否相称</strong>：高估值 + 高增长 = 合理；高估值 + 增长放缓 = 危险（PEG 看这个）</li>
-          <li><strong className="text-slate-200">看财务健康</strong>：现金 vs 债务、流动比率、自由现金流是否为正 — 衰退期能不能扛住？</li>
-          <li><strong className="text-slate-200">最后看分析师 & 价格位置</strong>：共识是参考，不是答案；52周位置帮你判断风险报酬比</li>
-        </ol>
-        <p className="mt-3 text-xs text-slate-500 leading-relaxed">
-          本页只展示<strong className="text-slate-300">定量数据</strong>。完整研究还需要：年报 (10-K)、财报电话会议记录、行业竞争格局、管理层信誉等定性信息。
-        </p>
+      {/* Diagnostic */}
+      <Section title="🩺 自动诊断（规则推断）" hint="把上面所有指标按通用阈值翻译成一段评价">
+        <Diagnostic fundamentals={f} />
       </Section>
     </div>
   );
