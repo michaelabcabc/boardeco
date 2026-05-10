@@ -1,5 +1,5 @@
-// Yahoo Finance data fetcher - no API key required
-// Uses unofficial Yahoo Finance API endpoints
+// Yahoo Finance data fetcher with crumb authentication
+// Yahoo Finance now requires a crumb token obtained from finance.yahoo.com
 
 export interface QuoteData {
   symbol: string;
@@ -26,45 +26,97 @@ export interface HistoricalData {
   volume?: number;
 }
 
-// Try both query1 and query2 endpoints (query2 is sometimes less rate-limited)
-const YAHOO_QUERY_HOSTS = [
-  'https://query1.finance.yahoo.com',
-  'https://query2.finance.yahoo.com',
-];
-const YAHOO_QUOTE_PATH = '/v7/finance/quote';
-const YAHOO_CHART_PATH = '/v8/finance/chart';
-
-// Cycle through hosts on retry
-let hostIndex = 0;
-function getHost() {
-  const host = YAHOO_QUERY_HOSTS[hostIndex % YAHOO_QUERY_HOSTS.length];
-  hostIndex++;
-  return host;
-}
-
-const HEADERS = {
+const BROWSER_HEADERS = {
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   Accept: 'application/json, text/plain, */*',
   'Accept-Language': 'en-US,en;q=0.9',
-  'Accept-Encoding': 'gzip, deflate, br',
   Origin: 'https://finance.yahoo.com',
   Referer: 'https://finance.yahoo.com/',
 };
 
+// Cache crumb + cookie in module scope (reused across requests within same Lambda instance)
+let cachedCrumb: string | null = null;
+let cachedCookie: string | null = null;
+let crumbFetchedAt = 0;
+const CRUMB_TTL = 55 * 60 * 1000; // 55 minutes
+
+async function getCrumb(): Promise<{ crumb: string; cookie: string } | null> {
+  const now = Date.now();
+  if (cachedCrumb && cachedCookie && now - crumbFetchedAt < CRUMB_TTL) {
+    return { crumb: cachedCrumb, cookie: cachedCookie };
+  }
+
+  try {
+    // Step 1: Visit finance.yahoo.com to get cookies
+    const pageRes = await fetch('https://finance.yahoo.com/', {
+      headers: BROWSER_HEADERS,
+      redirect: 'follow',
+    });
+    const rawCookies = pageRes.headers.get('set-cookie') || '';
+    // Extract cookie values
+    const cookie = rawCookies
+      .split(',')
+      .map(c => c.split(';')[0].trim())
+      .filter(Boolean)
+      .join('; ');
+
+    // Step 2: Get crumb token
+    const crumbRes = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+      headers: {
+        ...BROWSER_HEADERS,
+        Cookie: cookie,
+      },
+    });
+    if (!crumbRes.ok) throw new Error(`Crumb fetch failed: ${crumbRes.status}`);
+    const crumb = await crumbRes.text();
+
+    if (crumb && crumb.length > 0 && !crumb.includes('<')) {
+      cachedCrumb = crumb.trim();
+      cachedCookie = cookie;
+      crumbFetchedAt = now;
+      return { crumb: cachedCrumb, cookie: cachedCookie };
+    }
+    return null;
+  } catch (err) {
+    console.error('Failed to get Yahoo Finance crumb:', err);
+    return null;
+  }
+}
+
 export async function getQuotes(symbols: string[]): Promise<QuoteData[]> {
   try {
-    const host = getHost();
-    const url = new URL(`${host}${YAHOO_QUOTE_PATH}`);
-    url.searchParams.set('symbols', symbols.join(','));
-    url.searchParams.set('fields', 'regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketPreviousClose,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,regularMarketVolume,marketCap,shortName,longName,currency');
+    const auth = await getCrumb();
 
-    const res = await fetch(url.toString(), {
-      headers: HEADERS,
+    const params = new URLSearchParams({
+      symbols: symbols.join(','),
+      fields: 'regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketPreviousClose,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,regularMarketVolume,marketCap,shortName,longName,currency',
+    });
+
+    if (auth) {
+      params.set('crumb', auth.crumb);
+    }
+
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?${params}`;
+
+    const res = await fetch(url, {
+      headers: {
+        ...BROWSER_HEADERS,
+        ...(auth ? { Cookie: auth.cookie } : {}),
+      },
       cache: 'no-store',
     });
 
-    if (!res.ok) throw new Error(`Yahoo Finance error: ${res.status}`);
+    if (!res.ok) {
+      console.error(`Yahoo Finance quotes error: ${res.status}`);
+      // Reset crumb cache on auth errors
+      if (res.status === 401 || res.status === 403) {
+        cachedCrumb = null;
+        cachedCookie = null;
+      }
+      return [];
+    }
+
     const data = await res.json();
     const results = data?.quoteResponse?.result || [];
 
@@ -94,19 +146,31 @@ export async function getHistorical(
   period: '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y' = '1y'
 ): Promise<HistoricalData[]> {
   try {
-    const host = getHost();
-    const url = new URL(`${host}${YAHOO_CHART_PATH}/${symbol}`);
-    url.searchParams.set('range', period);
-    url.searchParams.set('interval', period === '1mo' ? '1d' : period === '3mo' ? '1d' : '1wk');
+    const auth = await getCrumb();
+    const interval = period === '1mo' ? '1d' : period === '3mo' ? '1d' : '1wk';
 
-    const res = await fetch(url.toString(), {
-      headers: HEADERS,
-      next: { revalidate: 3600 },
+    const params = new URLSearchParams({
+      range: period,
+      interval,
+      ...(auth ? { crumb: auth.crumb } : {}),
     });
 
-    if (!res.ok) throw new Error(`Yahoo Finance chart error: ${res.status}`);
-    const data = await res.json();
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?${params}`;
 
+    const res = await fetch(url, {
+      headers: {
+        ...BROWSER_HEADERS,
+        ...(auth ? { Cookie: auth.cookie } : {}),
+      },
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      console.error(`Yahoo Finance chart error: ${res.status}`);
+      return [];
+    }
+
+    const data = await res.json();
     const result = data?.chart?.result?.[0];
     if (!result) return [];
 
@@ -135,31 +199,22 @@ export async function getHistorical(
 
 // Key market symbols
 export const MARKET_SYMBOLS = {
-  // US Indices
   SP500: '^GSPC',
   NASDAQ: '^IXIC',
   DOW: '^DJI',
   RUSSELL2000: '^RUT',
   VIX: '^VIX',
-
-  // China/HK Indices
-  SSE: '000001.SS',     // 上证指数
-  SZSE: '399001.SZ',    // 深证成指
-  CSI300: '000300.SS',  // 沪深300
-  HKEX: '^HSI',         // 恒生指数
-
-  // Commodities
+  SSE: '000001.SS',
+  SZSE: '399001.SZ',
+  CSI300: '000300.SS',
+  HKEX: '^HSI',
   GOLD: 'GC=F',
   OIL_WTI: 'CL=F',
   OIL_BRENT: 'BZ=F',
   COPPER: 'HG=F',
-
-  // FX
   USDCNY: 'USDCNY=X',
   USDHKD: 'USDHKD=X',
-  DXY: 'DX-Y.NYB',       // Dollar Index
-
-  // Bonds
+  DXY: 'DX-Y.NYB',
   US10Y: '^TNX',
   US2Y: '^IRX',
 } as const;
