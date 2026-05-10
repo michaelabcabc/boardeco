@@ -102,6 +102,6 @@ export const FRED_SERIES = {
   // US Sentiment
   CONSUMER_SENTIMENT: 'UMCSENT',
 
-  // US Valuation
-  WILSHIRE_FULL_CAP: 'WILL5000PRFC', // total US market cap proxy (Buffett Indicator numerator)
+  // (Note: Wilshire 5000 series for Buffett Indicator was discontinued by FRED
+  //  in June 2024. We now scrape Shiller P/E from multpl.com — see lib/multpl.ts)
 } as const;

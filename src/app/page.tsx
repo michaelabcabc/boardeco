@@ -66,8 +66,7 @@ interface UsMacroData {
     retailSales?: IndicatorPoint;
     initialClaims?: IndicatorPoint;
     consumerSentiment?: IndicatorPoint;
-    wilshire?: IndicatorPoint;
-    buffett?: IndicatorPoint;
+    shillerPE?: IndicatorPoint;
   };
   history: {
     fedFunds: Array<{ date: string; value: string }>;
@@ -722,12 +721,11 @@ export default function Dashboard() {
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 <MetricCard
-                  label="巴菲特指标"
-                  value={usMacro?.indicators.buffett?.value ?? null}
-                  unit="%"
-                  date={usMacro?.indicators.buffett?.date}
-                  signal={(usMacro?.indicators.buffett?.value ?? 0) > 200 ? 'negative' : (usMacro?.indicators.buffett?.value ?? 0) > 130 ? 'warning' : 'positive'}
-                  description="Wilshire 5000 / GDP"
+                  label="Shiller P/E (CAPE)"
+                  value={usMacro?.indicators.shillerPE?.value ?? null}
+                  date={usMacro?.indicators.shillerPE?.date}
+                  signal={(usMacro?.indicators.shillerPE?.value ?? 0) > 35 ? 'negative' : (usMacro?.indicators.shillerPE?.value ?? 0) > 25 ? 'warning' : 'positive'}
+                  description="10年通胀调整 P/E"
                   size="sm"
                 />
                 <IndexHoverCard symbol="^VIX9D" label="VIX 9天">
@@ -750,30 +748,30 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <IndicatorExplainer
                   emoji="🐂"
-                  title="巴菲特指标（Buffett Indicator）"
-                  subtitle="股神最看重的长期估值锚"
-                  currentValue={usMacro?.indicators.buffett?.value}
+                  title="Shiller P/E（CAPE 10年周期调整市盈率）"
+                  subtitle="诺贝尔经济学奖得主 Shiller 提出，最经典的长期估值锚"
+                  currentValue={usMacro?.indicators.shillerPE?.value}
                   currentInterpretation={
-                    (usMacro?.indicators.buffett?.value ?? 0) > 200 ? '极度高估区间——历史上未来 5-10 年回报偏低'
-                    : (usMacro?.indicators.buffett?.value ?? 0) > 130 ? '偏贵，但仍有上行空间'
-                    : (usMacro?.indicators.buffett?.value ?? 0) > 80 ? '合理估值'
+                    (usMacro?.indicators.shillerPE?.value ?? 0) > 35 ? '极度高估区间——历史上未来 10 年年化回报偏低'
+                    : (usMacro?.indicators.shillerPE?.value ?? 0) > 25 ? '偏贵，但仍有上行空间'
+                    : (usMacro?.indicators.shillerPE?.value ?? 0) > 15 ? '合理估值'
                     : '便宜区间——历史上买点'
                   }
-                  whatIsIt={'美国所有上市公司总市值（Wilshire 5000 全市值指数）÷ 名义 GDP × 100。巴菲特说这是"任何时点估值的最佳单一指标"。基础逻辑：股市市值长期增速不能持续超过经济增速。'}
+                  whatIsIt={'S&P 500 当前价格 ÷ 过去 10 年平均通胀调整后盈利。用 10 年平均消除了商业周期的波动，比单年 P/E 更能反映&ldquo;长期估值水平&rdquo;。150 多年历史均值约 17。'}
                   readingLevels={[
-                    { range: '< 80%', meaning: '显著低估（如 2009 年 60%）', tone: 'good' },
-                    { range: '80% - 130%', meaning: '合理至小幅高估', tone: 'good' },
-                    { range: '130% - 200%', meaning: '明显高估', tone: 'warn' },
-                    { range: '> 200%', meaning: '极度高估（2021 顶部 ~210%）', tone: 'bad' },
+                    { range: '< 15', meaning: '显著低估（如 1982 年 ~7、2009 年 ~13）', tone: 'good' },
+                    { range: '15 - 25', meaning: '合理至小幅高估', tone: 'good' },
+                    { range: '25 - 35', meaning: '明显高估', tone: 'warn' },
+                    { range: '> 35', meaning: '极度高估（2000 顶部 44、2021 顶部 ~38）', tone: 'bad' },
                   ]}
                   stockImpact={
                     <ul className="list-disc list-inside space-y-1">
                       <li>不是择时工具——可以多年保持&ldquo;偏贵&rdquo;</li>
-                      <li>但与<strong className="text-amber-300">未来 10 年股市回报负相关性极强</strong></li>
+                      <li>但与<strong className="text-amber-300">未来 10 年股市年化回报负相关</strong>（高 CAPE → 低未来回报）</li>
                       <li>极端高位时降低仓位、增加现金/价值股配置往往是明智的</li>
                     </ul>
                   }
-                  relatedTo="GDP 增速 + Wilshire 5000（市值）→ Buffett 指标 → 长期回报预期"
+                  relatedTo="S&P 500 价格 + 过去10年盈利 → CAPE → 长期回报预期"
                 />
 
                 <IndicatorExplainer
