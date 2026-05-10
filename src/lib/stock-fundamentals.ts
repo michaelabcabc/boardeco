@@ -120,6 +120,10 @@ export interface StockFundamentals {
   // EPS
   trailingEps?: number;
   forwardEps?: number;
+  // Shares & Enterprise Value (used by DCF)
+  sharesOutstanding?: number;
+  enterpriseValue?: number;
+  bookValue?: number;
 }
 
 const MODULES = [
@@ -217,6 +221,9 @@ export async function fetchStockFundamentals(symbol: string): Promise<StockFunda
 
       trailingEps: v(stats.trailingEps),
       forwardEps: v(stats.forwardEps),
+      sharesOutstanding: v(stats.sharesOutstanding) ?? v(price.sharesOutstanding),
+      enterpriseValue: v(stats.enterpriseValue),
+      bookValue: v(stats.bookValue),
     };
   } catch {
     return null;
