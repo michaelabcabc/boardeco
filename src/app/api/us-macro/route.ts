@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getLatestValue, getSeriesHistory, FRED_SERIES } from '@/lib/fred';
+import { fetchShillerPE } from '@/lib/multpl';
 
 export const revalidate = 3600; // 1 hour cache
 
@@ -27,7 +28,7 @@ export async function GET() {
       retailSales,
       initialClaims,
       consumerSentiment,
-      wilshire,
+      shillerPE,
       // History for charts / explainers
       fedHistory,
       t10yHistory,
@@ -59,7 +60,7 @@ export async function GET() {
       getLatestValue(FRED_SERIES.RETAIL_SALES),
       getLatestValue(FRED_SERIES.INITIAL_CLAIMS),
       getLatestValue(FRED_SERIES.CONSUMER_SENTIMENT),
-      getLatestValue(FRED_SERIES.WILSHIRE_FULL_CAP),
+      fetchShillerPE(),
       getSeriesHistory(FRED_SERIES.FED_FUNDS_RATE, 36),
       getSeriesHistory(FRED_SERIES.TREASURY_10Y, 60),
       getSeriesHistory(FRED_SERIES.CPI_ALL, 36),
@@ -96,11 +97,9 @@ export async function GET() {
           parseFloat(aheHistory[aheHistory.length - 13].value)) - 1) * 100
       : null;
 
-    // Buffett Indicator: Wilshire Full Cap / nominal GDP × 100
-    // Both values published in $billions, so the ratio is a clean percentage
-    const buffett = wilshire && gdpNominal && gdpNominal.value > 0
-      ? (wilshire.value / gdpNominal.value) * 100
-      : null;
+    // Note: FRED removed the Wilshire 5000 series June 2024, so Buffett
+    // Indicator can't be computed any more. Replaced with Shiller P/E (CAPE),
+    // a similarly famous long-term valuation indicator scraped from multpl.com.
 
     return NextResponse.json({
       indicators: {
@@ -129,8 +128,9 @@ export async function GET() {
         retailSales,
         initialClaims,
         consumerSentiment,
-        wilshire,
-        buffett: buffett !== null ? { value: parseFloat(buffett.toFixed(1)), date: wilshire?.date } : null,
+        shillerPE: shillerPE
+          ? { value: parseFloat(shillerPE.value.toFixed(2)), date: shillerPE.date }
+          : null,
       },
       history: {
         fedFunds: fedHistory,
